@@ -51,3 +51,65 @@ def parse_json(data):
 ######################################################################
 # INSERT CODE HERE
 ######################################################################
+
+@app.route("/count")
+def count():
+    """return length of data"""
+    count = db.songs.count_documents({})
+    return {"count": count}, 200
+
+@app.route("/song", methods=["GET"])
+def get_songs():
+    """return all songs"""
+    songs = list(db.songs.find())
+    return jsonify(parse_json(songs)), 200
+
+
+@app.route("/song/<id>", methods=["GET"])
+def get_song_by_id(id):
+    """return a single song"""
+    song = db.songs.find_one({"id": int(id)})
+    if song:
+        return jsonify(parse_json(song)), 200
+    else:
+        return jsonify({"message": "song with id not found"}), 404
+
+
+@app.route("/song", methods=["POST"])
+def create_song():
+    """create a new song"""
+    song = request.get_json()
+    if db.songs.find_one({"id": song["id"]}):
+        return jsonify({"Message": "song with id {song['id']} already present"}), 302
+    result = db.songs.insert_one(song)
+    return jsonify({"inserted id": str(result.inserted_id)}), 201
+
+
+@app.route("/song/<string:id>", methods=["PUT"])
+def update_song(id):
+    """Update a song"""
+    song = request.get_json()
+    song["id"] = int(id)
+    original_song = db.songs.find_one({"id": int(id)})
+
+    if not original_song:
+        return jsonify({"message": "song not found"}), 404
+
+    song["_id"] = original_song["_id"]
+    result = db.songs.replace_one({"id": int(id)}, song)
+
+    if result.modified_count == 0:
+        return jsonify({"message": "song not updated"}), 400
+
+    updated_song = db.songs.find_one({"id": int(id)})
+    updated_song["_id"] = str(updated_song["_id"])  # Convert _id to string for JSON response
+    return jsonify(updated_song), 200
+
+
+@app.route("/song/<string:id>", methods=["DELETE"])
+def delete_song(id):
+    """Delete a song"""
+    result = db.songs.delete_one({"id": int(id)})
+    if result.deleted_count == 0:
+        return jsonify({"message": "song not found"}), 404
+    return jsonify({"message": "Song deleted"}), 200
